@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Exam Seat Allocation</title>
+
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 1100px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+        }
+
+        .exam {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .exam h2 {
+            margin-top: 0;
+        }
+
+        button,
+        a {
+            display: inline-block;
+            padding: 9px 14px;
+            border-radius: 5px;
+            border: 0;
+            cursor: pointer;
+            text-decoration: none;
+            margin-right: 8px;
+        }
+
+        button {
+            background: #333;
+            color: white;
+        }
+
+        a {
+            background: #eee;
+            color: #222;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            padding: 12px;
+            border-radius: 5px;
+            background: #f1f1f1;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>Exam Seat Allocation</h1>
+
+<div id="message" class="message"></div>
+
+{% for exam in exams %}
+
+<div class="exam">
+
+    <h2>
+        {{ exam.subject.subject_code }}
+        -
+        {{ exam.subject.subject_name }}
+    </h2>
+
+    <p>
+        <strong>Date:</strong>
+        {{ exam.exam_date }}
+    </p>
+
+    <p>
+        <strong>Session:</strong>
+        {{ exam.get_session_display }}
+    </p>
+
+    <button
+        onclick="generateAllocation({{ exam.exam_id }})"
+    >
+        Generate Allocation
+    </button>
+
+    <a
+        href="{% url 'exam_allocator:allocation_list' exam.exam_id %}"
+    >
+        View Allocation
+    </a>
+
+</div>
+
+{% empty %}
+
+<p>No exams available.</p>
+
+{% endfor %}
+
+
+<script>
+
+function generateAllocation(examId) {
+
+    const message =
+        document.getElementById("message");
+
+    message.style.display = "block";
+    message.innerText =
+        "Generating allocation...";
+
+    fetch(
+        `/exam/${examId}/generate/`,
+        {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": getCookie("csrftoken"),
+            },
+        }
+    )
+    .then(response => response.json())
+    .then(data => {
+
+        if (data.success) {
+
+            message.innerText =
+                `Allocation generated successfully. ` +
+                `${data.allocations} seats allocated.`;
+
+        } else {
+
+            message.innerText =
+                `Error: ${data.error}`;
+        }
+
+    })
+    .catch(error => {
+
+        message.innerText =
+            "Request failed: " + error;
+
+    });
+}
+
+
+function getCookie(name) {
+
+    let cookieValue = null;
+
+    if (document.cookie &&
+        document.cookie !== "") {
+
+        const cookies =
+            document.cookie.split(";");
+
+        for (let cookie of cookies) {
+
+            cookie = cookie.trim();
+
+            if (cookie.startsWith(name + "=")) {
+
+                cookieValue =
+                    decodeURIComponent(
+                        cookie.substring(
+                            name.length + 1
+                        )
+                    );
+
+                break;
+            }
+        }
+    }
+
+    return cookieValue;
+}
+
+</script>
+
+</body>
+</html>

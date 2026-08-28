@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <title>
+        {{ exam.subject.subject_code }}
+        - Allocation
+    </title>
+
+    <style>
+
+        body {
+            font-family: sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background: #eee;
+        }
+
+        .back {
+            display: inline-block;
+            margin-bottom: 20px;
+            text-decoration: none;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<a
+    class="back"
+    href="{% url 'exam_allocator:exam_list' %}"
+>
+    ← Back to Exams
+</a>
+
+<h1>
+    {{ exam.subject.subject_code }}
+    - {{ exam.subject.subject_name }}
+</h1>
+
+<p>
+    {{ exam.exam_date }}
+    |
+    {{ exam.get_session_display }}
+</p>
+
+<table>
+
+    <thead>
+
+        <tr>
+            <th>Roll Number</th>
+            <th>Student</th>
+            <th>Room</th>
+            <th>Bench</th>
+            <th>Seat</th>
+        </tr>
+
+    </thead>
+
+    <tbody>
+
+        {% for allocation in allocations %}
+
+        <tr>
+
+            <td>
+                {{ allocation.registration.student.roll_number }}
+            </td>
+
+            <td>
+                {{ allocation.registration.student.student_name }}
+            </td>
+
+            <td>
+                {{ allocation.room.room_number }}
+            </td>
+
+            <td>
+                {{ allocation.bench_number }}
+            </td>
+
+            <td>
+                {{ allocation.seat_number }}
+            </td>
+
+        </tr>
+
+        {% empty %}
+
+        <tr>
+            <td colspan="5">
+                No allocation has been generated yet.
+            </td>
+        </tr>
+
+        {% endfor %}
+
+    </tbody>
+
+</table>
+
+</body>
+</html>
