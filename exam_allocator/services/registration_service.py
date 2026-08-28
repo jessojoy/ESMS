@@ -11,7 +11,15 @@ It only produces a preview.
 
 from dataclasses import dataclass, field
 
-from exam_allocator.models import Exam, Student
+from exam_allocator.models import (
+    Exam,
+    Student,
+    ExamRegistration,
+)
+
+from django.db import transaction
+
+from exam_allocator.models import ExamRegistration
 
 # Timetable and student data sometimes use different
 # department abbreviations for the same department.
@@ -305,3 +313,109 @@ def preview_all_exams():
     )
 
     return [preview_exam_registration(exam) for exam in exams]
+
+
+@transaction.atomic
+def create_exam_registrations(exam: Exam) -> dict:
+    """
+    Create ExamRegistration records for an automatically
+    resolvable exam.
+
+    Existing registrations are reused, making this operation
+    safe to run multiple times.
+
+    Exams that require manual mapping or cannot be resolved
+    will not create registrations.
+    """
+
+    preview = preview_exam_registration(exam)
+
+    if preview.status != "AUTO_RESOLVED":
+        return {
+            "exam_id": exam.exam_id,
+            "subject_code": exam.subject.subject_code,
+            "status": preview.status,
+            "registrations_created": 0,
+            "registrations_existing": 0,
+            "message": preview.message,
+        }
+
+    created_count = 0
+    existing_count = 0
+
+    for student in preview.matched_students:
+
+        registration, created = ExamRegistration.objects.get_or_create(
+            student=student,
+            exam=exam,
+        )
+
+        if created:
+            created_count += 1
+        else:
+            existing_count += 1
+
+    return {
+        "exam_id": exam.exam_id,
+        "subject_code": exam.subject.subject_code,
+        "status": "AUTO_RESOLVED",
+        "registrations_created": created_count,
+        "registrations_existing": existing_count,
+        "message": "Registrations created successfully.",
+    }
+
+
+@transaction.atomic
+def create_all_exam_registrations() -> dict:
+    """
+    Create registrations for all automatically resolvable exams.
+
+    Exams requiring manual mapping are deliberately skipped.
+    """
+
+    exams = (
+        Exam.objects.select_related("subject")
+        .prefetch_related("targets")
+        .order_by(
+            "exam_date",
+            "session",
+            "exam_id",
+        )
+    )
+
+    total_created = 0
+    total_existing = 0
+
+    auto_resolved_exams = 0
+    mapping_required_exams = 0
+    unresolved_exams = 0
+
+    results = []
+
+    for exam in exams:
+
+        result = create_exam_registrations(exam)
+
+        results.append(result)
+
+        total_created += result["registrations_created"]
+
+        total_existing += result["registrations_existing"]
+
+        if result["status"] == "AUTO_RESOLVED":
+            auto_resolved_exams += 1
+
+        elif result["status"] == "REQUIRES_MAPPING":
+            mapping_required_exams += 1
+
+        else:
+            unresolved_exams += 1
+
+    return {
+        "total_created": total_created,
+        "total_existing": total_existing,
+        "auto_resolved_exams": auto_resolved_exams,
+        "mapping_required_exams": mapping_required_exams,
+        "unresolved_exams": unresolved_exams,
+        "results": results,
+    }
