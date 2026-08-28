@@ -1,48 +1,34 @@
 """
-PDF student-list extractor.
+Excel student-list parser.
 
-Extracts class metadata and the student roster from a department-generated
-student-list PDF (TKM College of Engineering format), using PyMuPDF's
-table detection (page.find_tables()).
+Reads the Students.xlsx workbook used by the exam seat allocation demo.
 
-This module is pure extraction + light structural normalization. It does
-not touch the database and does not silently discard or "fix" bad data --
-row-level problems (missing values, duplicate roll numbers, malformed rows)
-are collected in `ExtractionResult.issues` for the caller (validation/
-service layer) to act on. Only a structural failure -- the PDF not matching
-the expected table layout at all -- raises PDFExtractionError, since that
-means the file isn't parseable by this format handler, not that a value is
-merely missing.
+The workbook contains:
+    - "Master Overview" sheet
+    - One sheet per class
+
+Each class sheet contains:
+    - Class name
+    - Semester
+    - Duration
+    - Student count information
+    - Student roster
+
+This module only parses and normalizes the Excel file.
+It does not access the Django database.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+import re
 
-import pymupdf
-
-
-class PDFExtractionError(Exception):
-    """Raised when the PDF's structure doesn't match the expected student-list format."""
+from openpyxl import load_workbook
 
 
-# Roster header cells, in order, exactly as they appear in the source PDF.
-ROSTER_HEADER = ["Sl.No.", "Admission No", "Roll No", "Uni Reg No", "Name", "Gender"]
-ROSTER_COLUMN_COUNT = len(ROSTER_HEADER)
-
-# Normalized PDF metadata label -> internal key.
-METADATA_KEY_MAP = {
-    "department name": "department_name",
-    "class name": "class_name",
-    "course duration": "course_duration",
-    "semester duration": "semester_duration",
-    "current semester": "current_semester",
-    "students count": "students_count",
-    "male count": "male_count",
-    "female count": "female_count",
-    "faculty advisor": "faculty_advisor",
-}
+class StudentExcelParseError(Exception):
+    """Raised when the student Excel workbook cannot be parsed."""
 
 
 @dataclass
@@ -52,149 +38,420 @@ class StudentRecord:
     roll_number: str
     uni_reg_no: str
     name: str
+    gender: str
+    class_name: str
+    semester: int
+    academic_year: str
 
 
 @dataclass
-class ExtractionResult:
+class ClassRecord:
+    class_name: str
+    semester: int
+    academic_year: str
+    department_name: str
+    students: list[StudentRecord] = field(default_factory=list)
+
+
+@dataclass
+class StudentExtractionResult:
     source_file: str
-    metadata: dict
+    classes: list[ClassRecord]
     students: list[StudentRecord]
     issues: list[str] = field(default_factory=list)
 
 
-def extract_student_list(pdf_path: str) -> ExtractionResult:
-    """Extract class metadata and student roster from a single PDF file."""
-    path = Path(pdf_path)
+ROSTER_HEADER = [
+    "Sl. No.",
+    "Admission No",
+    "Roll No",
+    "Uni Reg No",
+    "Student Name",
+    "Gender",
+]
+
+MASTER_SHEET_NAME = "Master Overview"
+
+
+def parse_student_excel(excel_path: str) -> StudentExtractionResult:
+    """
+    Parse a Students.xlsx workbook.
+
+    Returns normalized class and student records.
+    """
+
+    path = Path(excel_path)
+
     if not path.exists():
-        raise PDFExtractionError(f"File not found: {pdf_path}")
+        raise StudentExcelParseError(
+            f"File not found: {excel_path}"
+        )
 
-    doc = pymupdf.open(str(path))
+    if path.suffix.lower() not in {".xlsx", ".xlsm"}:
+        raise StudentExcelParseError(
+            f"Unsupported file type: {path.suffix}"
+        )
+
     try:
-        metadata = _extract_metadata(doc, path)
-        students, issues = _extract_roster(doc, path)
-    finally:
-        doc.close()
+        workbook = load_workbook(
+            filename=path,
+            read_only=True,
+            data_only=True,
+        )
+    except Exception as exc:
+        raise StudentExcelParseError(
+            f"Could not open Excel workbook: {exc}"
+        ) from exc
 
-    return ExtractionResult(
+    classes: list[ClassRecord] = []
+    students: list[StudentRecord] = []
+    issues: list[str] = []
+
+    try:
+        for worksheet in workbook.worksheets:
+
+            # The overview is useful for humans but the individual
+            # class sheets contain the actual student records.
+            if worksheet.title.strip() == MASTER_SHEET_NAME:
+                continue
+
+            try:
+                class_record, class_students, class_issues = (
+                    _parse_class_sheet(worksheet)
+                )
+
+                classes.append(class_record)
+                students.extend(class_students)
+                issues.extend(class_issues)
+
+            except StudentExcelParseError as exc:
+                issues.append(
+                    f"Sheet '{worksheet.title}': {exc}"
+                )
+
+    finally:
+        workbook.close()
+
+    if not classes:
+        raise StudentExcelParseError(
+            "No class sheets containing student data were found."
+        )
+
+    return StudentExtractionResult(
         source_file=path.name,
-        metadata=metadata,
+        classes=classes,
         students=students,
         issues=issues,
     )
 
 
-def _extract_metadata(doc: "pymupdf.Document", path: Path) -> dict:
-    first_page = doc[0]
-    tables = first_page.find_tables()
+def _parse_class_sheet(worksheet):
+    """
+    Parse one class worksheet.
+    """
 
-    for table in tables.tables:
-        if table.col_count == 2:
-            return _normalize_metadata(table.extract())
+    rows = list(
+        worksheet.iter_rows(
+            values_only=True
+        )
+    )
 
-    raise PDFExtractionError(
-        f"{path.name}: could not locate the metadata table "
-        "(expected a 2-column key/value table on page 1)."
+    if not rows:
+        raise StudentExcelParseError(
+            "Sheet is empty."
+        )
+
+    class_name = _extract_class_name(rows)
+
+    semester = _extract_semester(rows)
+
+    academic_year = _extract_academic_year(rows)
+
+    department_name = _extract_department_name(rows)
+
+    header_index = _find_roster_header(rows)
+
+    if header_index is None:
+        raise StudentExcelParseError(
+            "Could not find student roster header."
+        )
+
+    student_rows = rows[header_index + 1 :]
+
+    students, issues = _parse_students(
+        student_rows=student_rows,
+        class_name=class_name,
+        semester=semester,
+        academic_year=academic_year,
+    )
+
+    class_record = ClassRecord(
+        class_name=class_name,
+        semester=semester,
+        academic_year=academic_year,
+        department_name=department_name,
+        students=students,
+    )
+
+    return class_record, students, issues
+
+
+def _extract_class_name(rows) -> str:
+    """
+    Example source:
+
+        Class Name: B.Arch 2K21A
+    """
+
+    for row in rows[:10]:
+        for cell in row:
+            if cell is None:
+                continue
+
+            text = str(cell).strip()
+
+            match = re.search(
+                r"Class Name\s*:\s*(.+)",
+                text,
+                re.IGNORECASE,
+            )
+
+            if match:
+                return match.group(1).strip()
+
+    raise StudentExcelParseError(
+        "Class Name was not found."
     )
 
 
-def _normalize_metadata(rows: list[list[str]]) -> dict:
-    metadata = {}
-    for row in rows:
-        if len(row) != 2:
-            continue
-        label, value = row
-        key = METADATA_KEY_MAP.get((label or "").strip().lower())
-        if key is None:
-            continue
-        metadata[key] = (value or "").replace("\n", " ").strip()
-    return metadata
+def _extract_semester(rows) -> int:
+    """
+    Example source:
 
+        Semester: S10 (Xth Semester)
 
-def _extract_roster(
-    doc: "pymupdf.Document", path: Path
-) -> tuple[list[StudentRecord], list[str]]:
-    issues: list[str] = []
-    raw_rows: list[list[str]] = []
-    header_seen = False
+    Returns:
 
-    for page in doc:
-        tables = page.find_tables()
-        for table in tables.tables:
-            if table.col_count != ROSTER_COLUMN_COUNT:
+        10
+    """
+
+    for row in rows[:10]:
+        for cell in row:
+            if cell is None:
                 continue
 
-            rows = table.extract()
-            if not rows:
+            text = str(cell).strip()
+
+            match = re.search(
+                r"Semester\s*:\s*S(\d+)",
+                text,
+                re.IGNORECASE,
+            )
+
+            if match:
+                return int(match.group(1))
+
+    raise StudentExcelParseError(
+        "Semester was not found."
+    )
+
+
+def _extract_academic_year(rows) -> str:
+    """
+    Example source:
+
+        Duration: 2021-2026
+
+    The duration is used as the academic-year value for now.
+    """
+
+    for row in rows[:10]:
+        for cell in row:
+            if cell is None:
                 continue
 
-            if _looks_like_header(rows[0]):
-                header_seen = True
-                raw_rows.extend(rows[1:])
-            else:
-                # Continuation table from a page break -- no header repeated.
-                raw_rows.extend(rows)
+            text = str(cell).strip()
 
-    if not header_seen:
-        raise PDFExtractionError(
-            f"{path.name}: could not locate the student roster header "
-            f"(expected columns: {', '.join(ROSTER_HEADER)}). "
-            "This PDF may use an unsupported format."
-        )
+            match = re.search(
+                r"Duration\s*:\s*(\d{4}\s*-\s*\d{4})",
+                text,
+                re.IGNORECASE,
+            )
 
-    students, row_issues = _normalize_roster_rows(raw_rows)
-    issues.extend(row_issues)
-    return students, issues
+            if match:
+                return match.group(1).replace(" ", "")
+
+    return ""
 
 
-def _looks_like_header(row: list[str]) -> bool:
-    normalized = [(cell or "").strip() for cell in row]
-    return normalized == ROSTER_HEADER
+def _extract_department_name(rows) -> str:
+    """
+    Example first row:
+
+        TKM COLLEGE OF ENGINEERING, KOLLAM-5
+        DEPARTMENT OF ARCHITECTURE
+    """
+
+    for row in rows[:3]:
+        for cell in row:
+            if cell is None:
+                continue
+
+            text = str(cell).strip()
+
+            match = re.search(
+                r"DEPARTMENT OF\s+(.+)",
+                text,
+                re.IGNORECASE,
+            )
+
+            if match:
+                return (
+                    "DEPARTMENT OF "
+                    + match.group(1).strip()
+                )
+
+    return ""
 
 
-def _normalize_roster_rows(
-    rows: list[list[str]],
-) -> tuple[list[StudentRecord], list[str]]:
+def _find_roster_header(rows):
+    """
+    Find the row containing:
+
+        Sl. No.
+        Admission No
+        Roll No
+        Uni Reg No
+        Student Name
+        Gender
+    """
+
+    expected = [
+        value.lower()
+        for value in ROSTER_HEADER
+    ]
+
+    for index, row in enumerate(rows):
+
+        values = [
+            str(cell).strip().lower()
+            if cell is not None
+            else ""
+            for cell in row[:6]
+        ]
+
+        if values == expected:
+            return index
+
+    return None
+
+
+def _parse_students(
+    student_rows,
+    class_name: str,
+    semester: int,
+    academic_year: str,
+):
     students: list[StudentRecord] = []
     issues: list[str] = []
+
     seen_roll_numbers: dict[str, int] = {}
 
-    for row_index, row in enumerate(rows, start=1):
-        if len(row) != ROSTER_COLUMN_COUNT:
+    for row_number, row in enumerate(
+        student_rows,
+        start=1,
+    ):
+
+        values = list(row[:6])
+
+        # Ignore completely empty rows.
+        if not any(
+            value is not None and str(value).strip()
+            for value in values
+        ):
+            continue
+
+        if len(values) < 6:
             issues.append(
-                f"Row {row_index}: expected {ROSTER_COLUMN_COUNT} columns, got {len(row)}. Skipped."
+                f"{class_name}: row {row_number} "
+                f"has fewer than 6 columns. Skipped."
             )
             continue
 
-        sl_no, admission_no, roll_no, uni_reg_no, name, _gender = (
-            (cell or "").strip() for cell in row
-        )
+        (
+            sl_no,
+            admission_no,
+            roll_number,
+            uni_reg_no,
+            student_name,
+            gender,
+        ) = values
 
-        if not roll_no:
+        sl_no = _clean_value(sl_no)
+        admission_no = _clean_value(admission_no)
+        roll_number = _clean_value(roll_number)
+        uni_reg_no = _clean_value(uni_reg_no)
+        student_name = _clean_value(student_name)
+        gender = _clean_value(gender)
+
+        # Stop if Excel contains another section/header.
+        if roll_number.lower() == "roll no":
+            continue
+
+        if not roll_number:
             issues.append(
-                f"Row {row_index} ({name or 'unnamed'}): missing Roll No. Record kept, needs review."
-            )
-        if not name:
-            issues.append(
-                f"Row {row_index} (Roll No {roll_no or 'unknown'}): missing Name. Record kept, needs review."
+                f"{class_name}: row {row_number} "
+                "has no roll number."
             )
 
-        if roll_no:
-            if roll_no in seen_roll_numbers:
+        if not student_name:
+            issues.append(
+                f"{class_name}: row {row_number} "
+                "has no student name."
+            )
+
+        if roll_number:
+
+            if roll_number in seen_roll_numbers:
                 issues.append(
-                    f"Row {row_index}: duplicate Roll No '{roll_no}' "
-                    f"(first seen at row {seen_roll_numbers[roll_no]})."
+                    f"{class_name}: duplicate roll number "
+                    f"'{roll_number}' at row {row_number}; "
+                    f"first seen at row "
+                    f"{seen_roll_numbers[roll_number]}."
                 )
             else:
-                seen_roll_numbers[roll_no] = row_index
+                seen_roll_numbers[roll_number] = row_number
 
-        students.append(
-            StudentRecord(
-                sl_no=sl_no,
-                admission_no=admission_no,
-                roll_number=roll_no,
-                uni_reg_no=uni_reg_no,
-                name=name,
-            )
+        student = StudentRecord(
+            sl_no=sl_no,
+            admission_no=admission_no,
+            roll_number=roll_number,
+            uni_reg_no=uni_reg_no,
+            name=student_name,
+            gender=gender,
+            class_name=class_name,
+            semester=semester,
+            academic_year=academic_year,
         )
 
+        students.append(student)
+
     return students, issues
+
+
+def _clean_value(value) -> str:
+    """
+    Convert Excel values to clean strings.
+
+    This is deliberately conservative so we don't accidentally
+    modify roll numbers or names.
+    """
+
+    if value is None:
+        return ""
+
+    if isinstance(value, float):
+        if value.is_integer():
+            return str(int(value))
+
+    return str(value).strip()
