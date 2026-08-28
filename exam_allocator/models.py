@@ -141,7 +141,6 @@ class Allocation(models.Model):
         )
 
 
-
 class UploadedFile(models.Model):
     class FileKind(models.TextChoices):
         STUDENT_LIST = "STUDENT", "Student List"
@@ -164,12 +163,29 @@ class UploadedFile(models.Model):
     original_filename = models.CharField(max_length=255)
     file_kind = models.CharField(max_length=20, choices=FileKind.choices)
     source_format = models.CharField(max_length=10, choices=SourceFormat.choices)
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.UPLOADED)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.UPLOADED
+    )
     uploaded_at = models.DateTimeField(auto_now_add=True)
     processed_at = models.DateTimeField(null=True, blank=True)
     error_log = models.TextField(blank=True)
 
     def __str__(self):
         return f"{self.original_filename} ({self.get_status_display()})"
+
+
 # Create your models here.
 
+
+class ExamTarget(models.Model):
+    exam = models.ForeignKey(
+        Exam,
+        on_delete=models.CASCADE,
+        related_name="targets",
+    )
+
+    target_type = models.CharField(max_length=30)
+
+    branch_code = models.CharField(max_length=20, blank=True)
+
+    slot = models.CharField(max_length=20, blank=True)
