@@ -22,7 +22,7 @@ print("=" * 100)
 print("EXAM REGISTRATION DATABASE IMPORT TEST")
 print("=" * 100)
 
-session = AllocationSession.objects.get(session_id=1)
+session = AllocationSession.objects.get(session_id=2)
 
 print("\nSESSION")
 print("-" * 100)

@@ -243,7 +243,10 @@ def preview_exam_registration(
             "student_class",
             "student_class__department",
         )
-        .filter(student_class__semester=exam.subject.semester)
+        .filter(
+            student_class__semester=exam.subject.semester,
+            student_class__department__session=exam.subject.session,
+        )
         .order_by(
             "student_class__class_name",
             "roll_number",
@@ -366,7 +369,7 @@ def create_exam_registrations(exam: Exam) -> dict:
 
 
 @transaction.atomic
-def create_all_exam_registrations() -> dict:
+def create_all_exam_registrations(session) -> dict:
     """
     Create registrations for all automatically resolvable exams.
 
@@ -376,6 +379,7 @@ def create_all_exam_registrations() -> dict:
     exams = (
         Exam.objects.select_related("subject")
         .prefetch_related("targets")
+        .filter(subject__session=session)
         .order_by(
             "exam_date",
             "session",
