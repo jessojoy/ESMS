@@ -19,6 +19,7 @@ from exam_allocator.services.import_service import (
 )
 
 from exam_allocator.models import (
+    AllocationSession,
     Department,
     Class,
     Student,
@@ -29,7 +30,9 @@ FILE = "/home/petercj/Documents/Dev/Mini_project/resources/sajeerfiles/Students.
 
 result = parse_student_excel(FILE)
 
-stats = import_students(result)
+session = AllocationSession.objects.get(session_id=1)
+
+stats = import_students(result, session)
 
 
 print("=" * 80)
@@ -46,20 +49,19 @@ for key, value in stats.items():
 print("\nDATABASE COUNTS")
 print("-" * 80)
 
-print(f"Departments: {Department.objects.count()}")
-
-print(f"Classes: {Class.objects.count()}")
-
-print(f"Students: {Student.objects.count()}")
+print(f"Departments: {session.departments.count()}")
+print(f"Classes: {Class.objects.filter(department__session=session).count()}")
+print(
+    f"Students: {Student.objects.filter(student_class__department__session=session).count()}"
+)
 
 
 print("\nSAMPLE STUDENTS")
 print("-" * 80)
 
-for student in Student.objects.select_related(
-    "student_class",
-    "student_class__department",
-)[:10]:
+for student in Student.objects.filter(
+    student_class__department__session=session
+).select_related("student_class", "student_class__department",)[:10]:
 
     print(
         f"{student.roll_number:15} | "
