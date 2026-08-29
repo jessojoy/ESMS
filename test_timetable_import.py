@@ -19,6 +19,7 @@ from exam_allocator.services.import_service import (
 )
 
 from exam_allocator.models import (
+    AllocationSession,
     Subject,
     Exam,
 )
@@ -27,8 +28,8 @@ FILE = "/home/petercj/Documents/Dev/Mini_project/resources/sajeerfiles/Timetable
 
 
 result = parse_timetable_excel(FILE)
-
-stats = import_timetable(result)
+session = AllocationSession.objects.get(session_id=1)
+stats = import_timetable(result, session)
 
 
 print("=" * 100)

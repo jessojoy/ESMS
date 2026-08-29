@@ -1,6 +1,7 @@
 from django.db import transaction
 
 from exam_allocator.models import (
+    AllocationSession,
     Department,
     Class,
     Student,
@@ -53,7 +54,7 @@ def get_department_name(class_record) -> str:
 
 
 @transaction.atomic
-def import_students(student_result):
+def import_students(student_result, session):
     """
     Import parsed students into the Django database.
 
@@ -84,6 +85,7 @@ def import_students(student_result):
         department_name = get_department_name(class_record)
 
         department, created = Department.objects.get_or_create(
+            session=session,
             department_code=department_code,
             defaults={
                 "department_name": department_name,
@@ -152,7 +154,7 @@ def import_students(student_result):
 
 
 @transaction.atomic
-def import_classrooms(classroom_result):
+def import_classrooms(classroom_result, session):
     """
     Import parsed classrooms into the Django database.
 
@@ -166,6 +168,7 @@ def import_classrooms(classroom_result):
     for classroom in classroom_result.classrooms:
 
         room, created = Room.objects.get_or_create(
+            session=session,
             room_number=classroom.room_number,
             defaults={
                 "capacity": classroom.capacity,
@@ -258,7 +261,7 @@ def _make_subject_code(subject_code: str, subject_name: str) -> str:
 
 
 @transaction.atomic
-def import_timetable(timetable_result):
+def import_timetable(timetable_result, session):
     """
     Import timetable data into the database.
 
@@ -287,6 +290,7 @@ def import_timetable(timetable_result):
         )
 
         subject, created = Subject.objects.get_or_create(
+            session=session,
             subject_code=subject_code,
             defaults={
                 "subject_name": exam_record.subject_name,
