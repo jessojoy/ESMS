@@ -189,24 +189,57 @@ def generate_registrations(request, session_id):
         )
 
     try:
-        result = create_all_exam_registrations(session)
+        # ---------------------------------------------------------
+        # STEP 1: GENERATE / VERIFY EXAM REGISTRATIONS
+        # ---------------------------------------------------------
 
-    except Exception as exc:
-        return JsonResponse(
+        registration_result = create_all_exam_registrations(session)
+
+        # ---------------------------------------------------------
+        # STEP 2: RUN COMPLETE SESSION-WIDE ALLOCATION
+        # ---------------------------------------------------------
+
+        allocation_result = run_session_allocation(session)
+
+    except SessionAllocationError as exc:
+
+        return render(
+            request,
+            "exam_allocator/registration_result.html",
             {
-                "success": False,
-                "error": str(exc),
+                "session": session,
+                "result": (
+                    registration_result if "registration_result" in locals() else None
+                ),
+                "allocation_error": str(exc),
             },
             status=400,
         )
 
-    return render(
-        request,
-        "exam_allocator/registration_result.html",
-        {
-            "session": session,
-            "result": result,
-        },
+    except Exception as exc:
+
+        return render(
+            request,
+            "exam_allocator/registration_result.html",
+            {
+                "session": session,
+                "result": (
+                    registration_result if "registration_result" in locals() else None
+                ),
+                "allocation_error": str(exc),
+            },
+            status=400,
+        )
+
+    # ---------------------------------------------------------
+    # STEP 3: ALLOCATION IS COMPLETE
+    #
+    # Send the user directly to the final allocation page.
+    # ---------------------------------------------------------
+
+    return redirect(
+        "exam_allocator:session_allocation_result",
+        session_id=session.session_id,
     )
 
 
