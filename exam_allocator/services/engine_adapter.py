@@ -85,7 +85,7 @@ def django_room_to_engine_classroom(room):
     )
 
 
-def get_engine_classrooms():
-    rooms = Room.objects.all().order_by("room_number")
+def get_engine_classrooms(session):
+    rooms = Room.objects.filter(session=session).order_by("room_number")
 
     return [django_room_to_engine_classroom(room) for room in rooms]

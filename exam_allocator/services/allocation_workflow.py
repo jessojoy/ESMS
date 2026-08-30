@@ -67,7 +67,7 @@ def run_allocation(exam_id):
     # 3. Convert Django rooms to engine classrooms
     # ---------------------------------------------------------
 
-    classrooms = get_engine_classrooms()
+    classrooms = get_engine_classrooms(exam.subject.session)
 
     if not classrooms:
         raise AllocationWorkflowError("No classrooms are available.")

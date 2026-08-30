@@ -23,7 +23,10 @@ def save_seat_plan(exam: Exam, seat_plan):
     the allocation to be safely regenerated.
     """
 
-    rooms = {room.room_number: room for room in Room.objects.all()}
+    rooms = {
+        room.room_number: room
+        for room in Room.objects.filter(session=exam.subject.session)
+    }
 
     registrations = {
         registration.student.roll_number: registration
