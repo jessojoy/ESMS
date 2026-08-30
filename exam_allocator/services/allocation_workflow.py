@@ -36,7 +36,7 @@ def run_allocation(exam_id):
             ↓
         AllocationContext
             ↓
-        Sajee­r AllocationService
+        Sajeer AllocationService
             ↓
         SeatPlan
             ↓
@@ -48,9 +48,16 @@ def run_allocation(exam_id):
     # ---------------------------------------------------------
 
     try:
-        exam = Exam.objects.select_related("subject").get(exam_id=exam_id)
+        exam = Exam.objects.select_related(
+            "subject",
+            "subject__session",
+        ).get(exam_id=exam_id)
+
     except Exam.DoesNotExist as exc:
+
         raise AllocationWorkflowError(f"Exam {exam_id} does not exist.") from exc
+
+    session = exam.subject.session
 
     # ---------------------------------------------------------
     # 2. Convert Django registrations to engine students
@@ -59,18 +66,22 @@ def run_allocation(exam_id):
     students = get_engine_students(exam)
 
     if not students:
+
         raise AllocationWorkflowError(
             f"No exam registrations found for " f"{exam.subject.subject_code}."
         )
 
     # ---------------------------------------------------------
-    # 3. Convert Django rooms to engine classrooms
+    # 3. Convert ONLY this session's rooms
     # ---------------------------------------------------------
 
-    classrooms = get_engine_classrooms(exam.subject.session)
+    classrooms = get_engine_classrooms(session)
 
     if not classrooms:
-        raise AllocationWorkflowError("No classrooms are available.")
+
+        raise AllocationWorkflowError(
+            f"No classrooms are available for " f"session '{session.name}'."
+        )
 
     # ---------------------------------------------------------
     # 4. Build merged groups
@@ -79,6 +90,7 @@ def run_allocation(exam_id):
     groups = GroupBuilder().build(students)
 
     if not groups:
+
         raise AllocationWorkflowError("No allocation groups could be created.")
 
     # ---------------------------------------------------------
@@ -96,19 +108,23 @@ def run_allocation(exam_id):
     )
 
     # ---------------------------------------------------------
-    # 6. Execute Sajee­r's engine
+    # 6. Execute Sajeer's engine
     # ---------------------------------------------------------
 
     try:
+
         engine_service = AllocationService()
 
         context, seat_plan = engine_service.execute(context)
+
     except Exception as exc:
+
         raise AllocationWorkflowError(
             f"Allocation engine failed for " f"{exam.subject.subject_code}: {exc}"
         ) from exc
 
     if seat_plan is None:
+
         raise AllocationWorkflowError("Allocation engine returned no seat plan.")
 
     # ---------------------------------------------------------
@@ -118,6 +134,7 @@ def run_allocation(exam_id):
     generated_seats = len(seat_plan.seats)
 
     if generated_seats != len(students):
+
         raise AllocationWorkflowError(
             f"Engine generated {generated_seats} seats "
             f"for {len(students)} registered students."
@@ -128,11 +145,14 @@ def run_allocation(exam_id):
     # ---------------------------------------------------------
 
     try:
+
         allocations = save_seat_plan(
             exam,
             seat_plan,
         )
+
     except Exception as exc:
+
         raise AllocationWorkflowError(
             f"Could not save allocation for " f"{exam.subject.subject_code}: {exc}"
         ) from exc

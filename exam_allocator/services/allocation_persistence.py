@@ -19,14 +19,23 @@ def save_seat_plan(exam: Exam, seat_plan):
     """
     Save an engine SeatPlan into Django Allocation records.
 
-    Existing allocations for this exam are deleted first, allowing
-    the allocation to be safely regenerated.
+    Only rooms belonging to the exam's session may be used.
+
+    Existing allocations for this exam are deleted first,
+    allowing the allocation to be safely regenerated.
     """
 
-    rooms = {
-        room.room_number: room
-        for room in Room.objects.filter(session=exam.subject.session)
-    }
+    session = exam.subject.session
+
+    # ---------------------------------------------------------
+    # Session-specific rooms
+    # ---------------------------------------------------------
+
+    rooms = {room.room_number: room for room in Room.objects.filter(session=session)}
+
+    # ---------------------------------------------------------
+    # Exam registrations
+    # ---------------------------------------------------------
 
     registrations = {
         registration.student.roll_number: registration
@@ -35,22 +44,36 @@ def save_seat_plan(exam: Exam, seat_plan):
         )
     }
 
-    # Validate engine output before changing the database.
+    # ---------------------------------------------------------
+    # Validate engine output
+    # ---------------------------------------------------------
+
     for seat in seat_plan.seats:
 
         if seat.room_no not in rooms:
-            raise ValueError(f"Engine generated unknown room: {seat.room_no}")
+
+            raise ValueError(
+                f"Engine generated unknown room: "
+                f"{seat.room_no} for session "
+                f"'{session.name}'"
+            )
 
         if seat.student.roll_no not in registrations:
+
             raise ValueError(
                 f"Student {seat.student.roll_no} is not "
-                f"registered for exam {exam.subject.subject_code}"
+                f"registered for exam "
+                f"{exam.subject.subject_code}"
             )
 
         if seat.stream not in STREAM_TO_SEAT_NUMBER:
+
             raise ValueError(f"Unknown engine stream: {seat.stream}")
 
-    # Replace any previous allocation for this exam.
+    # ---------------------------------------------------------
+    # Replace previous allocation
+    # ---------------------------------------------------------
+
     Allocation.objects.filter(exam=exam).delete()
 
     allocations = []

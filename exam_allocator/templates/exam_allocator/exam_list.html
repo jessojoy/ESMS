@@ -2,9 +2,21 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Exam Seat Allocation</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        {% if session %}
+            {{ session.name }} - Exams
+        {% else %}
+            Exam Seat Allocation
+        {% endif %}
+    </title>
 
     <style>
+
         body {
             font-family: sans-serif;
             max-width: 1100px;
@@ -13,7 +25,19 @@
         }
 
         h1 {
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #666;
             margin-bottom: 30px;
+        }
+
+        .back {
+            display: inline-block;
+            margin-bottom: 25px;
+            color: #555;
+            text-decoration: none;
         }
 
         .exam {
@@ -25,10 +49,19 @@
 
         .exam h2 {
             margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        .info {
+            margin-bottom: 8px;
+        }
+
+        .actions {
+            margin-top: 20px;
         }
 
         button,
-        a {
+        a.button {
             display: inline-block;
             padding: 9px 14px;
             border-radius: 5px;
@@ -36,6 +69,7 @@
             cursor: pointer;
             text-decoration: none;
             margin-right: 8px;
+            font-size: 14px;
         }
 
         button {
@@ -43,9 +77,22 @@
             color: white;
         }
 
-        a {
+        button:hover {
+            background: #111;
+        }
+
+        a.button {
             background: #eee;
             color: #222;
+        }
+
+        a.button:hover {
+            background: #ddd;
+        }
+
+        button:disabled {
+            background: #999;
+            cursor: wait;
         }
 
         .message {
@@ -55,14 +102,60 @@
             background: #f1f1f1;
             display: none;
         }
+
+        .message.success {
+            display: block;
+            background: #eaf7ea;
+            border: 1px solid #b7ddb7;
+        }
+
+        .message.error {
+            display: block;
+            background: #fbeaea;
+            border: 1px solid #e0b5b5;
+        }
+
+        .empty {
+            padding: 30px;
+            border: 1px dashed #ccc;
+            border-radius: 8px;
+            text-align: center;
+            color: #777;
+        }
+
     </style>
 </head>
 
 <body>
 
-<h1>Exam Seat Allocation</h1>
+{% if session %}
+
+    <a
+        class="back"
+        href="{% url 'exam_allocator:session_detail' session.session_id %}"
+    >
+        ← Back to Session
+    </a>
+
+    <h1>{{ session.name }}</h1>
+
+    <div class="subtitle">
+        Examinations in this allocation session
+    </div>
+
+{% else %}
+
+    <h1>Exam Seat Allocation</h1>
+
+    <div class="subtitle">
+        All examinations
+    </div>
+
+{% endif %}
+
 
 <div id="message" class="message"></div>
+
 
 {% for exam in exams %}
 
@@ -74,79 +167,188 @@
         {{ exam.subject.subject_name }}
     </h2>
 
-    <p>
+    <div class="info">
+        <strong>Exam ID:</strong>
+        {{ exam.exam_id }}
+    </div>
+
+    <div class="info">
         <strong>Date:</strong>
         {{ exam.exam_date }}
-    </p>
+    </div>
 
-    <p>
+    <div class="info">
         <strong>Session:</strong>
         {{ exam.get_session_display }}
-    </p>
+    </div>
 
-    <button
-        onclick="generateAllocation({{ exam.exam_id }})"
-    >
-        Generate Allocation
-    </button>
 
-    <a
-        href="{% url 'exam_allocator:allocation_list' exam.exam_id %}"
-    >
-        View Allocation
-    </a>
+    <div class="actions">
+
+        <button
+            type="button"
+            onclick="generateAllocation(
+                {{ exam.exam_id }},
+                this
+            )"
+        >
+            Generate Allocation
+        </button>
+
+        <a
+            class="button"
+            href="{% url 'exam_allocator:allocation_list' exam.exam_id %}"
+        >
+            View Allocation
+        </a>
+
+    </div>
 
 </div>
 
 {% empty %}
 
-<p>No exams available.</p>
+<div class="empty">
+    No examinations are available in this session.
+</div>
 
 {% endfor %}
 
 
 <script>
 
-function generateAllocation(examId) {
+function generateAllocation(examId, button) {
 
     const message =
         document.getElementById("message");
 
-    message.style.display = "block";
+    /*
+     * Disable the button while the allocation
+     * engine is running.
+     */
+
+    button.disabled = true;
+
+    button.innerText =
+        "Generating...";
+
+
+    message.className =
+        "message success";
+
     message.innerText =
-        "Generating allocation...";
+        "Generating seat allocation...";
+
 
     fetch(
         `/exam/${examId}/generate/`,
         {
             method: "POST",
+
             headers: {
-                "X-CSRFToken": getCookie("csrftoken"),
+                "X-CSRFToken":
+                    getCookie("csrftoken"),
+
+                "Content-Type":
+                    "application/json",
             },
         }
     )
-    .then(response => response.json())
+
+    .then(response => {
+
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(
+                    data.error ||
+                    "Allocation generation failed."
+                );
+            });
+        }
+
+        return response.json();
+
+    })
+
     .then(data => {
 
-        if (data.success) {
+        if (!data.success) {
 
-            message.innerText =
-                `Allocation generated successfully. ` +
-                `${data.allocations} seats allocated.`;
+            throw new Error(
+                data.error ||
+                "Allocation generation failed."
+            );
+        }
 
-        } else {
 
-            message.innerText =
-                `Error: ${data.error}`;
+        message.className =
+            "message success";
+
+        message.innerHTML =
+            "<strong>Allocation generated successfully.</strong><br>" +
+            data.allocations +
+            " students have been allocated seats.";
+
+
+        /*
+         * Change the button so the user knows
+         * the allocation is complete.
+         */
+
+        button.disabled = false;
+
+        button.innerText =
+            "Regenerate Allocation";
+
+
+        /*
+         * Add a direct link to the allocation
+         * visualization.
+         */
+
+        const actions =
+            button.parentElement;
+
+        const existingLink =
+            actions.querySelector(
+                ".generated-allocation-link"
+            );
+
+        if (!existingLink) {
+
+            const link =
+                document.createElement("a");
+
+            link.className =
+                "button generated-allocation-link";
+
+            link.href =
+                `/exam/${examId}/allocations/`;
+
+            link.innerText =
+                "Open Seat Allocation →";
+
+            actions.appendChild(link);
         }
 
     })
+
     .catch(error => {
 
+        message.className =
+            "message error";
+
         message.innerText =
-            "Request failed: " + error;
+            "Error: " + error.message;
+
+
+        button.disabled = false;
+
+        button.innerText =
+            "Generate Allocation";
 
     });
+
 }
 
 
@@ -154,17 +356,29 @@ function getCookie(name) {
 
     let cookieValue = null;
 
-    if (document.cookie &&
-        document.cookie !== "") {
+
+    if (
+        document.cookie &&
+        document.cookie !== ""
+    ) {
 
         const cookies =
             document.cookie.split(";");
 
-        for (let cookie of cookies) {
 
-            cookie = cookie.trim();
+        for (
+            let cookie of cookies
+        ) {
 
-            if (cookie.startsWith(name + "=")) {
+            cookie =
+                cookie.trim();
+
+
+            if (
+                cookie.startsWith(
+                    name + "="
+                )
+            ) {
 
                 cookieValue =
                     decodeURIComponent(
@@ -175,8 +389,11 @@ function getCookie(name) {
 
                 break;
             }
+
         }
+
     }
+
 
     return cookieValue;
 }
