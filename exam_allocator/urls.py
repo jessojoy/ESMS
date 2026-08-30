@@ -32,6 +32,21 @@ urlpatterns = [
         name="upload_file",
     ),
     path(
+        "session/<int:session_id>/registrations/generate/",
+        views.generate_registrations,
+        name="generate_registrations",
+    ),
+    path(
+        "session/<int:session_id>/allocations/",
+        views.session_allocation_result,
+        name="session_allocation_result",
+    ),
+    path(
+        "session/<int:session_id>/allocate/",
+        views.generate_session_allocation,
+        name="generate_session_allocation",
+    ),
+    path(
         "exam/<int:exam_id>/generate/",
         views.generate_allocation,
         name="generate_allocation",
@@ -40,10 +55,5 @@ urlpatterns = [
         "exam/<int:exam_id>/allocations/",
         views.allocation_list,
         name="allocation_list",
-    ),
-    path(
-        "session/<int:session_id>/registrations/generate/",
-        views.generate_registrations,
-        name="generate_registrations",
     ),
 ]

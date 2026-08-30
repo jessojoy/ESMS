@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Allocation Results - {{ session.name }}</title>
+
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+
+        body {
+
+            font-family: sans-serif;
+
+            max-width: 1400px;
+
+            margin: 0 auto;
+
+            padding: 30px 20px;
+
+            background: #fafafa;
+
+            color: #111;
+        }
+
+
+        a {
+
+            text-decoration: none;
+
+            color: inherit;
+        }
+
+
+        .top {
+
+            margin-bottom: 25px;
+        }
+
+
+        .back {
+
+            color: #555;
+        }
+
+
+        h1 {
+
+            margin-bottom: 5px;
+        }
+
+
+        .subtitle {
+
+            color: #666;
+
+            margin-bottom: 30px;
+        }
+
+
+        /* ================================================== */
+        /* SUCCESS                                             */
+        /* ================================================== */
+
+        .success {
+
+            border: 1px solid #aaa;
+
+            border-radius: 8px;
+
+            padding: 20px;
+
+            margin-bottom: 25px;
+
+            background: white;
+        }
+
+
+        .success h2 {
+
+            margin-top: 0;
+        }
+
+
+        /* ================================================== */
+        /* PROGRESS                                            */
+        /* ================================================== */
+
+        .stats {
+
+            display: grid;
+
+            grid-template-columns: repeat(5, 1fr);
+
+            gap: 15px;
+
+            margin-bottom: 30px;
+        }
+
+
+        .stat {
+
+            border: 1px solid #ddd;
+
+            border-radius: 8px;
+
+            padding: 18px;
+
+            background: white;
+        }
+
+
+        .stat-number {
+
+            font-size: 28px;
+
+            font-weight: bold;
+        }
+
+
+        .stat-label {
+
+            color: #666;
+
+            margin-top: 5px;
+        }
+
+
+        /* ================================================== */
+        /* CLASSROOM VIEWER                                    */
+        /* ================================================== */
+
+        .viewer {
+
+            background: white;
+
+            border: 1px solid #ddd;
+
+            border-radius: 10px;
+
+            overflow: hidden;
+
+            margin-top: 30px;
+        }
+
+
+        .viewer-header {
+
+            display: flex;
+
+            justify-content: space-between;
+
+            align-items: center;
+
+            gap: 20px;
+
+            padding: 20px;
+
+            border-bottom: 1px solid #ddd;
+        }
+
+
+        .viewer-header h2 {
+
+            margin: 0 0 6px 0;
+        }
+
+
+        .viewer-subtitle {
+
+            margin: 0;
+
+            color: #666;
+        }
+
+
+        .print-button {
+
+            border: 1px solid #888;
+
+            border-radius: 6px;
+
+            padding: 10px 16px;
+
+            background: white;
+
+            cursor: pointer;
+
+            font-size: 14px;
+
+            white-space: nowrap;
+        }
+
+
+        .print-button:hover {
+
+            background: #f3f3f3;
+        }
+
+
+        /* ================================================== */
+        /* CLASSROOM CONTAINER                                 */
+        /* ================================================== */
+
+        .classroom-viewer {
+
+            padding: 25px;
+        }
+
+
+        /*
+         * Only the selected classroom is visible on screen.
+         */
+
+        .classroom-page {
+
+            display: none;
+        }
+
+
+        .classroom-page.active {
+
+            display: block;
+        }
+
+
+        /* ================================================== */
+        /* ROOM HEADER                                         */
+        /* ================================================== */
+
+        .room-header {
+
+            display: flex;
+
+            justify-content: space-between;
+
+            align-items: center;
+
+            gap: 20px;
+
+            margin-bottom: 20px;
+        }
+
+
+        .room-title h3 {
+
+            margin: 0 0 5px 0;
+
+            font-size: 23px;
+        }
+
+
+        .room-title p {
+
+            margin: 0;
+
+            color: #666;
+        }
+
+
+        .room-info {
+
+            color: #666;
+
+            font-size: 14px;
+
+            white-space: nowrap;
+        }
+
+
+        /* ================================================== */
+        /* FRONT / BACK                                        */
+        /* ================================================== */
+
+        .front {
+
+            text-align: center;
+
+            font-weight: bold;
+
+            color: #555;
+
+            padding: 10px;
+
+            margin-bottom: 15px;
+
+            border-bottom: 2px solid #ddd;
+        }
+
+
+        .back-marker {
+
+            text-align: center;
+
+            font-weight: bold;
+
+            color: #555;
+
+            padding: 10px;
+
+            margin-top: 15px;
+
+            border-top: 2px solid #ddd;
+        }
+
+
+        /* ================================================== */
+        /* CLASSROOM                                           */
+        /* ================================================== */
+
+        .classroom {
+
+            border: 1px solid #ccc;
+
+            border-radius: 10px;
+
+            padding: 15px;
+
+            background: #fff;
+
+            overflow-x: auto;
+        }
+
+
+        /*
+         * Three benches across each row.
+         *
+         * Example:
+         *
+         * Bench 1   Bench 2   Bench 3
+         * Bench 4   Bench 5   Bench 6
+         * Bench 7   Bench 8   Bench 9
+         *
+         * Bench 10  Bench 11  Bench 12
+         * Bench 13  Bench 14  Bench 15
+         */
+
+        .classroom-rows {
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 12px;
+
+            min-width: 1000px;
+        }
+
+
+        .classroom-row {
+
+            display: grid;
+
+            grid-template-columns: repeat(3, 1fr);
+
+            gap: 12px;
+        }
+
+
+        /* ================================================== */
+        /* BENCH                                               */
+        /* ================================================== */
+
+        .bench {
+
+            border: 1px solid #ccc;
+
+            border-radius: 7px;
+
+            overflow: hidden;
+
+            background: white;
+        }
+
+
+        .bench-label {
+
+            text-align: center;
+
+            font-weight: bold;
+
+            font-size: 13px;
+
+            padding: 6px;
+
+            background: #f5f5f5;
+
+            border-bottom: 1px solid #ddd;
+        }
+
+
+        .seats {
+
+            display: grid;
+
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+
+        /* ================================================== */
+        /* SEAT                                                */
+        /* ================================================== */
+
+        .seat {
+
+            min-height: 78px;
+
+            padding: 7px 4px;
+
+            border-right: 1px solid #ddd;
+
+            text-align: center;
+
+            display: flex;
+
+            flex-direction: column;
+
+            justify-content: center;
+
+            align-items: center;
+        }
+
+
+        .seat:last-child {
+
+            border-right: none;
+        }
+
+
+        /*
+         * Seat 1 and Seat 3 are END positions.
+         */
+
+        .seat.end-seat {
+
+            background: #eef8ea;
+        }
+
+
+        /*
+         * Seat 2 is the MIDDLE position.
+         */
+
+        .seat.middle-seat {
+
+            background: #fff;
+        }
+
+
+        .seat-number {
+
+            font-size: 11px;
+
+            color: #777;
+
+            margin-bottom: 4px;
+        }
+
+
+        .roll-number {
+
+            font-size: 12px;
+
+            font-weight: bold;
+
+            word-break: break-word;
+        }
+
+
+        .subject {
+
+            font-size: 10px;
+
+            color: #666;
+
+            margin-top: 3px;
+        }
+
+
+        .empty-seat {
+
+            color: #aaa;
+
+            font-size: 11px;
+
+            font-style: italic;
+        }
+
+
+        /* ================================================== */
+        /* LEGEND                                              */
+        /* ================================================== */
+
+        .legend {
+
+            display: flex;
+
+            justify-content: center;
+
+            align-items: center;
+
+            gap: 25px;
+
+            margin-top: 15px;
+
+            color: #666;
+
+            font-size: 13px;
+        }
+
+
+        .legend-item {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 7px;
+        }
+
+
+        .legend-box {
+
+            width: 18px;
+
+            height: 18px;
+
+            border: 1px solid #ccc;
+
+            border-radius: 3px;
+        }
+
+
+        .legend-end {
+
+            background: #eef8ea;
+        }
+
+
+        .legend-middle {
+
+            background: white;
+        }
+
+
+        /* ================================================== */
+        /* CLASSROOM NAVIGATION                                */
+        /* ================================================== */
+
+        .viewer-navigation {
+
+            display: flex;
+
+            justify-content: space-between;
+
+            align-items: center;
+
+            padding: 18px 25px;
+
+            border-top: 1px solid #ddd;
+
+            background: #fafafa;
+        }
+
+
+        .nav-button {
+
+            border: 1px solid #aaa;
+
+            border-radius: 6px;
+
+            padding: 10px 16px;
+
+            background: white;
+
+            cursor: pointer;
+
+            font-size: 14px;
+        }
+
+
+        .nav-button:hover {
+
+            background: #f3f3f3;
+        }
+
+
+        .nav-button:disabled {
+
+            color: #aaa;
+
+            cursor: not-allowed;
+
+            background: #fafafa;
+        }
+
+
+        .room-counter {
+
+            font-weight: bold;
+
+            color: #555;
+        }
+
+
+        /* ================================================== */
+        /* MOBILE                                              */
+        /* ================================================== */
+
+        @media (max-width: 900px) {
+
+            .stats {
+
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+
+            .room-header {
+
+                flex-direction: column;
+
+                align-items: flex-start;
+            }
+
+
+            .viewer-header {
+
+                flex-direction: column;
+
+                align-items: flex-start;
+            }
+        }
+
+
+        @media (max-width: 600px) {
+
+            .stats {
+
+                grid-template-columns: 1fr;
+            }
+
+
+            body {
+
+                padding: 20px 10px;
+            }
+
+
+            .classroom-viewer {
+
+                padding: 10px;
+            }
+
+
+            .viewer-navigation {
+
+                padding: 15px;
+
+                gap: 10px;
+            }
+
+
+            .room-counter {
+
+                font-size: 13px;
+            }
+        }
+
+
+        /* ================================================== */
+        /* PRINT                                                */
+        /* ================================================== */
+
+        @media print {
+
+            /*
+             * Each classroom is treated as one physical page.
+             */
+
+            @page {
+
+                size: A4 landscape;
+
+                margin: 8mm;
+            }
+
+
+            body {
+
+                max-width: none;
+
+                margin: 0;
+
+                padding: 0;
+
+                background: white;
+            }
+
+
+            /*
+             * These elements are useful on screen
+             * but should not appear on the printed
+             * classroom sheets.
+             */
+
+            .top,
+            h1,
+            .subtitle,
+            .success,
+            .stats,
+            .viewer-header,
+            .viewer-navigation {
+
+                display: none !important;
+            }
+
+
+            .viewer {
+
+                border: none;
+
+                margin: 0;
+
+                padding: 0;
+
+                overflow: visible;
+            }
+
+
+            .classroom-viewer {
+
+                padding: 0;
+
+                overflow: visible;
+            }
+
+
+            /*
+             * IMPORTANT:
+             *
+             * On screen only .active is displayed.
+             *
+             * During printing ALL classrooms are
+             * displayed.
+             */
+
+            .classroom-page {
+
+                display: block !important;
+
+                width: 100%;
+
+                min-height: 190mm;
+
+                padding: 5mm;
+
+                page-break-after: always;
+
+                break-after: page;
+            }
+
+
+            /*
+             * Do not create an unnecessary blank page
+             * after the final classroom.
+             */
+
+            .classroom-page:last-child {
+
+                page-break-after: auto;
+
+                break-after: auto;
+            }
+
+
+            .room-header {
+
+                margin-bottom: 8px;
+            }
+
+
+            .room-title h3 {
+
+                font-size: 20px;
+            }
+
+
+            .room-title p {
+
+                font-size: 12px;
+            }
+
+
+            .room-info {
+
+                font-size: 12px;
+            }
+
+
+            .front {
+
+                padding: 5px;
+
+                margin-bottom: 8px;
+            }
+
+
+            .classroom {
+
+                border: 1px solid #aaa;
+
+                border-radius: 5px;
+
+                padding: 8px;
+
+                overflow: visible;
+            }
+
+
+            .classroom-rows {
+
+                min-width: 0;
+
+                width: 100%;
+
+                gap: 6px;
+            }
+
+
+            .classroom-row {
+
+                gap: 6px;
+            }
+
+
+            .bench {
+
+                break-inside: avoid;
+
+                page-break-inside: avoid;
+            }
+
+
+            .bench-label {
+
+                font-size: 11px;
+
+                padding: 4px;
+            }
+
+
+            .seat {
+
+                min-height: 55px;
+
+                padding: 4px 2px;
+            }
+
+
+            .seat-number {
+
+                font-size: 9px;
+
+                margin-bottom: 2px;
+            }
+
+
+            .roll-number {
+
+                font-size: 10px;
+            }
+
+
+            .subject {
+
+                font-size: 8px;
+
+                margin-top: 2px;
+            }
+
+
+            .empty-seat {
+
+                font-size: 9px;
+            }
+
+
+            .legend {
+
+                margin-top: 8px;
+
+                font-size: 10px;
+            }
+
+
+            .legend-box {
+
+                width: 14px;
+
+                height: 14px;
+            }
+
+
+            .back-marker {
+
+                padding: 5px;
+
+                margin-top: 8px;
+            }
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<!-- ====================================================== -->
+<!-- TOP                                                   -->
+<!-- ====================================================== -->
+
+<div class="top">
+
+    <a
+        class="back"
+        href="{% url 'exam_allocator:session_detail' session.session_id %}"
+    >
+        ← Back to Session
+    </a>
+
+</div>
+
+
+<h1>Allocation Results</h1>
+
+<div class="subtitle">
+
+    {{ session.name }}
+
+</div>
+
+
+<!-- ====================================================== -->
+<!-- SUCCESS                                               -->
+<!-- ====================================================== -->
+
+<div class="success">
+
+    <h2>
+
+        ✓ Allocation generation completed
+
+    </h2>
+
+    <p>
+
+        Seat allocations have been generated for the
+        entire examination session.
+
+    </p>
+
+</div>
+
+
+<!-- ====================================================== -->
+<!-- PROGRESS REPORT                                       -->
+<!-- ====================================================== -->
+
+<div class="stats">
+
+
+    <div class="stat">
+
+        <div class="stat-number">
+
+            {{ registrations_count }}
+
+        </div>
+
+        <div class="stat-label">
+
+            Total Registrations
+
+        </div>
+
+    </div>
+
+
+    <div class="stat">
+
+        <div class="stat-number">
+
+            {{ students_allocated }}
+
+        </div>
+
+        <div class="stat-label">
+
+            Students Allocated
+
+        </div>
+
+    </div>
+
+
+    <div class="stat">
+
+        <div class="stat-number">
+
+            {{ exams_count }}
+
+        </div>
+
+        <div class="stat-label">
+
+            Exams
+
+        </div>
+
+    </div>
+
+
+    <div class="stat">
+
+        <div class="stat-number">
+
+            {{ rooms_count }}
+
+        </div>
+
+        <div class="stat-label">
+
+            Physical Rooms Available
+        </div>
+
+    </div>
+
+    <div class="stat">
+
+    <div class="stat-number">
+
+        {{ seating_arrangements_count }}
+
+    </div>
+
+    <div class="stat-label">
+
+        Seating Arrangements
+
+    </div>
+
+</div>
+
+
+    <div class="stat">
+
+        <div class="stat-number">
+
+            {{ allocations_count }}
+
+        </div>
+
+        <div class="stat-label">
+
+            Allocation Records
+
+        </div>
+
+    </div>
+
+
+</div>
+
+
+<!-- ====================================================== -->
+<!-- CLASSROOM VIEWER                                      -->
+<!-- ====================================================== -->
+
+{% if classroom_views %}
+
+
+<div class="viewer">
+
+
+    <!-- ================================================== -->
+    <!-- VIEWER HEADER                                      -->
+    <!-- ================================================== -->
+
+    <div class="viewer-header">
+
+
+        <div>
+
+            <h2>
+
+                Classroom Seat Allocations
+
+            </h2>
+
+            <p class="viewer-subtitle">
+
+                Browse each classroom seating arrangement for every examination slot.
+
+            </p>
+
+        </div>
+
+
+        <button
+            type="button"
+            class="print-button"
+            onclick="printAllClassrooms()"
+        >
+
+            🖨 Print All Seating Arrangements
+
+        </button>
+
+
+    </div>
+
+
+    <!-- ================================================== -->
+    <!-- CLASSROOM PAGES                                    -->
+    <!-- ================================================== -->
+
+    <div class="classroom-viewer">
+
+
+        {% for classroom in classroom_views %}
+
+
+        <div
+            class="classroom-page"
+            data-classroom-index="{{ forloop.counter0 }}"
+        >
+
+
+            <!-- ========================================== -->
+            <!-- CLASSROOM HEADER                            -->
+            <!-- ========================================== -->
+
+            <div class="room-header">
+
+
+                <div class="room-title">
+
+                    <h3>
+
+    Classroom {{ classroom.room.room_number }}
+
+</h3>
+
+<p>
+
+    Seating arrangement for
+
+    <strong>
+        {{ classroom.date }}
+    </strong>
+
+    —
+
+    <strong>
+        {{ classroom.session }}
+    </strong>
+
+</p>
+
+                </div>
+
+
+                <div class="room-info">
+
+                    {{ classroom.students }}
+
+                    students allocated
+
+                    &nbsp; | &nbsp;
+
+                    Capacity:
+
+                    {{ classroom.capacity }}
+
+                    &nbsp; | &nbsp;
+
+                    Benches:
+
+                    {{ classroom.benches }}
+
+                    &nbsp; | &nbsp;
+
+                    Seats per Bench:
+
+                    3
+
+                </div>
+
+
+            </div>
+
+
+            <!-- ========================================== -->
+            <!-- FRONT                                       -->
+            <!-- ========================================== -->
+
+            <div class="front">
+
+                ↑ FRONT
+
+            </div>
+
+
+            <!-- ========================================== -->
+            <!-- CLASSROOM                                  -->
+            <!-- ========================================== -->
+
+            <div class="classroom">
+
+
+                <div class="classroom-rows">
+
+
+                    {% for row in classroom.rows %}
+
+
+                    <div class="classroom-row">
+
+
+                        {% for bench in row.benches %}
+
+
+                        <div class="bench">
+
+
+                            <div class="bench-label">
+
+                                Bench {{ bench.number }}
+
+                            </div>
+
+
+                            <div class="seats">
+
+
+                                {% for seat in bench.seats %}
+
+
+                                <div
+                                    class="
+                                        seat
+                                        {% if seat.number == 1 or seat.number == 3 %}
+                                            end-seat
+                                        {% else %}
+                                            middle-seat
+                                        {% endif %}
+                                    "
+                                >
+
+
+                                    <div class="seat-number">
+
+                                        Seat {{ seat.number }}
+
+                                    </div>
+
+
+                                    {% if seat.allocation %}
+
+
+                                    <div class="roll-number">
+
+                                        {{ seat.allocation.registration.student.roll_number }}
+
+                                    </div>
+
+
+                                    <div class="subject">
+
+                                        {{ seat.allocation.exam.subject.subject_code }}
+
+                                    </div>
+
+
+                                    {% else %}
+
+
+                                    <div class="empty-seat">
+
+                                        Empty
+
+                                    </div>
+
+
+                                    {% endif %}
+
+
+                                </div>
+
+
+                                {% endfor %}
+
+
+                            </div>
+
+
+                        </div>
+
+
+                        {% endfor %}
+
+
+                    </div>
+
+
+                    {% endfor %}
+
+
+                </div>
+
+
+            </div>
+
+
+            <!-- ========================================== -->
+            <!-- LEGEND                                     -->
+            <!-- ========================================== -->
+
+            <div class="legend">
+
+
+                <div class="legend-item">
+
+                    <div class="legend-box legend-end"></div>
+
+                    End position
+
+                </div>
+
+
+                <div class="legend-item">
+
+                    <div class="legend-box legend-middle"></div>
+
+                    Middle position
+
+                </div>
+
+
+            </div>
+
+
+            <!-- ========================================== -->
+            <!-- BACK                                       -->
+            <!-- ========================================== -->
+
+            <div class="back-marker">
+
+                ↓ BACK
+
+            </div>
+
+
+        </div>
+
+
+        {% endfor %}
+
+
+    </div>
+
+
+    <!-- ================================================== -->
+    <!-- NAVIGATION                                         -->
+    <!-- ================================================== -->
+
+    <div class="viewer-navigation">
+
+
+        <button
+            type="button"
+            id="previousClassroom"
+            class="nav-button"
+            onclick="changeClassroom(-1)"
+        >
+
+            ← Previous
+
+        </button>
+
+
+        <div class="room-counter">
+
+            Seating Arrangement
+
+
+            <span id="currentClassroom">
+                1
+            </span>
+
+            of
+
+            <span id="totalClassrooms">
+                {{ classroom_views|length }}
+            </span>
+
+        </div>
+
+
+        <button
+            type="button"
+            id="nextClassroom"
+            class="nav-button"
+            onclick="changeClassroom(1)"
+        >
+
+            Next →
+
+        </button>
+
+
+    </div>
+
+
+</div>
+
+
+{% else %}
+
+
+<!-- ====================================================== -->
+<!-- NO ALLOCATIONS                                        -->
+<!-- ====================================================== -->
+
+<div class="success">
+
+    <h2>
+
+        No allocations found
+
+    </h2>
+
+
+    <p>
+
+        There are currently no seat allocations to display.
+
+    </p>
+
+</div>
+
+
+{% endif %}
+
+
+<!-- ====================================================== -->
+<!-- JAVASCRIPT                                            -->
+<!-- ====================================================== -->
+
+<script>
+
+
+    let currentClassroom = 0;
+
+
+    /*
+     * Get every classroom page currently present
+     * in the viewer.
+     */
+
+    function getClassrooms() {
+
+        return document.querySelectorAll(
+            ".classroom-page"
+        );
+
+    }
+
+
+    /*
+     * Display one classroom.
+     */
+
+    function showClassroom(index) {
+
+        const classrooms = getClassrooms();
+
+
+        if (classrooms.length === 0) {
+
+            return;
+
+        }
+
+
+        /*
+         * Prevent going before the first classroom.
+         */
+
+        if (index < 0) {
+
+            index = 0;
+
+        }
+
+
+        /*
+         * Prevent going beyond the last classroom.
+         */
+
+        if (index >= classrooms.length) {
+
+            index = classrooms.length - 1;
+
+        }
+
+
+        /*
+         * Hide every classroom except
+         * the selected one.
+         */
+
+        classrooms.forEach(
+            function(classroom, classroomIndex) {
+
+                classroom.classList.toggle(
+                    "active",
+                    classroomIndex === index
+                );
+
+            }
+        );
+
+
+        currentClassroom = index;
+
+
+        /*
+         * Update the counter.
+         */
+
+        document.getElementById(
+            "currentClassroom"
+        ).innerText = index + 1;
+
+
+        /*
+         * Update Previous button.
+         */
+
+        const previousButton =
+            document.getElementById(
+                "previousClassroom"
+            );
+
+
+        previousButton.disabled =
+            index === 0;
+
+
+        /*
+         * Update Next button.
+         */
+
+        const nextButton =
+            document.getElementById(
+                "nextClassroom"
+            );
+
+
+        nextButton.disabled =
+            index === classrooms.length - 1;
+
+    }
+
+
+    /*
+     * Move to the next or previous classroom.
+     */
+
+    function changeClassroom(direction) {
+
+        showClassroom(
+            currentClassroom + direction
+        );
+
+    }
+
+
+    /*
+     * Print every classroom.
+     *
+     * The print CSS automatically changes all
+     * classroom-page elements to display:block.
+     */
+
+    function printAllClassrooms() {
+
+        window.print();
+
+    }
+
+
+    /*
+     * Show the first classroom when the page loads.
+     */
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        function() {
+
+            showClassroom(0);
+
+        }
+    );
+
+
+</script>
+
+
+</body>
+
+</html>

@@ -116,6 +116,13 @@
             cursor: pointer;
         }
 
+        button.button {
+            background: #333;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
         button:hover,
         .button:hover {
             background: #f5f5f5;
@@ -516,31 +523,67 @@
     </div>
 
 
-    <!-- ALLOCATIONS -->
+   <div class="section">
 
-    <div class="section">
+    <h2>Allocations</h2>
 
-        <h2>Allocations</h2>
+    {% if allocations_count %}
 
-        {% if allocations_count %}
+        <p>
+            {{ allocations_count }}
+            allocation records currently exist for this session.
+        </p>
 
-            <p>
-                {{ allocations_count }}
-                allocation records have been generated.
-            </p>
+        <p>
+            You can regenerate the complete session-wide allocation.
+            This will run the allocation engine across all examination
+            time slots and replace the existing allocations.
+        </p>
 
-        {% else %}
+    {% else %}
 
-            <div class="empty">
+        <p>
+            No seat allocations have been generated yet.
+        </p>
 
-                No seat allocations have been generated
-                yet.
+        <p>
+            The allocation engine will process all examinations
+            together according to their examination date and FN/AN session.
+        </p>
 
-            </div>
+    {% endif %}
 
-        {% endif %}
+    <form
+        method="post"
+        action="{% url 'exam_allocator:generate_session_allocation' session.session_id %}"
+    >
 
-    </div>
+        {% csrf_token %}
+
+        <button type="submit">
+            {% if allocations_count %}
+                Regenerate All Allocations
+            {% else %}
+                Generate All Allocations
+            {% endif %}
+        </button>
+
+    </form>
+
+    {% if allocations_count %}
+
+        <br>
+
+        <a
+            class="button"
+            href="{% url 'exam_allocator:session_allocation_result' session.session_id %}"
+        >
+            View Seat Allocations →
+        </a>
+
+    {% endif %}
+
+</div>
 
 
 </body>
