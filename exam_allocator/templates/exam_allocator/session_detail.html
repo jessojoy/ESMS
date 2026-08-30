@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>{{ session.name }}</title>
+
+    <style>
+
+        body {
+            font-family: sans-serif;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        a {
+            text-decoration: none;
+        }
+
+        .top {
+            margin-bottom: 30px;
+        }
+
+        .back {
+            color: #555;
+        }
+
+        .session-header {
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .session-header h1 {
+            margin-bottom: 8px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 5px;
+            background: #eee;
+            font-size: 13px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            margin-bottom: 15px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .stat {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .stat-number {
+            font-size: 30px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+        }
+
+        .imports {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .import-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 25px;
+        }
+
+        .import-card h3 {
+            margin-top: 0;
+        }
+
+        .import-card p {
+            color: #666;
+        }
+
+        .import-card input[type="file"] {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        button,
+        .button {
+            display: inline-block;
+            padding: 10px 15px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: white;
+            color: #111;
+            cursor: pointer;
+        }
+
+        button:hover,
+        .button:hover {
+            background: #f5f5f5;
+        }
+
+        .empty {
+            border: 1px dashed #ccc;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            color: #777;
+        }
+
+        .message {
+            padding: 12px 15px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+
+        @media (max-width: 700px) {
+
+            .stats,
+            .imports {
+                grid-template-columns: 1fr;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+
+    <!-- MESSAGES -->
+
+    {% if messages %}
+
+        {% for message in messages %}
+
+            <div class="message">
+                {{ message }}
+            </div>
+
+        {% endfor %}
+
+    {% endif %}
+
+
+    <!-- HEADER -->
+
+    <div class="top">
+
+        <a
+            class="back"
+            href="{% url 'exam_allocator:session_list' %}"
+        >
+            ← All Sessions
+        </a>
+
+    </div>
+
+
+    <div class="session-header">
+
+        <h1>
+            {{ session.name }}
+        </h1>
+
+        <span class="status">
+            {{ session.get_status_display }}
+        </span>
+
+    </div>
+
+
+    <!-- DATA SUMMARY -->
+
+    <div class="section">
+
+        <h2>Data</h2>
+
+        <div class="stats">
+
+            <div class="stat">
+
+                <div class="stat-number">
+                    {{ departments_count }}
+                </div>
+
+                <div class="stat-label">
+                    Departments
+                </div>
+
+            </div>
+
+
+            <div class="stat">
+
+                <div class="stat-number">
+                    {{ classes_count }}
+                </div>
+
+                <div class="stat-label">
+                    Classes
+                </div>
+
+            </div>
+
+
+            <div class="stat">
+
+                <div class="stat-number">
+                    {{ students_count }}
+                </div>
+
+                <div class="stat-label">
+                    Students
+                </div>
+
+            </div>
+
+
+            <div class="stat">
+
+                <div class="stat-number">
+                    {{ subjects_count }}
+                </div>
+
+                <div class="stat-label">
+                    Subjects
+                </div>
+
+            </div>
+
+
+            <div class="stat">
+
+                <div class="stat-number">
+                    {{ exams_count }}
+                </div>
+
+                <div class="stat-label">
+                    Exams
+                </div>
+
+            </div>
+
+
+            <div class="stat">
+
+                <div class="stat-number">
+                    {{ rooms_count }}
+                </div>
+
+                <div class="stat-label">
+                    Rooms
+                </div>
+
+            </div>
+
+
+            <div class="stat">
+
+                <div class="stat-number">
+                    {{ registrations_count }}
+                </div>
+
+                <div class="stat-label">
+                    Registrations
+                </div>
+
+            </div>
+
+
+            <div class="stat">
+
+                <div class="stat-number">
+                    {{ allocations_count }}
+                </div>
+
+                <div class="stat-label">
+                    Allocations
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- IMPORT DATA -->
+
+    <div class="section">
+
+        <h2>Import Data</h2>
+
+        <div class="imports">
+
+
+            <!-- STUDENT LIST -->
+
+            <div class="import-card">
+
+                <h3>Student List</h3>
+
+                <p>
+                    Import student and class information.
+                </p>
+
+                <form
+                    method="post"
+                    action="{% url 'exam_allocator:upload_file' session.session_id %}"
+                    enctype="multipart/form-data"
+                >
+
+                    {% csrf_token %}
+
+                    <input
+                        type="hidden"
+                        name="file_kind"
+                        value="STUDENT"
+                    >
+
+                    <input
+                        type="file"
+                        name="file"
+                        accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg"
+                        required
+                    >
+
+                    <button type="submit">
+                        Upload Student List
+                    </button>
+
+                </form>
+
+            </div>
+
+
+            <!-- TIMETABLE -->
+
+            <div class="import-card">
+
+                <h3>Exam Timetable</h3>
+
+                <p>
+                    Import subjects, exams and exam targets.
+                </p>
+
+                <form
+                    method="post"
+                    action="{% url 'exam_allocator:upload_file' session.session_id %}"
+                    enctype="multipart/form-data"
+                >
+
+                    {% csrf_token %}
+
+                    <input
+                        type="hidden"
+                        name="file_kind"
+                        value="TIMETABLE"
+                    >
+
+                    <input
+                        type="file"
+                        name="file"
+                        accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg"
+                        required
+                    >
+
+                    <button type="submit">
+                        Upload Timetable
+                    </button>
+
+                </form>
+
+            </div>
+
+
+            <!-- CLASSROOMS -->
+
+            <div class="import-card">
+
+                <h3>Classrooms</h3>
+
+                <p>
+                    Import examination rooms and seating capacity.
+                </p>
+
+                <form
+                    method="post"
+                    action="{% url 'exam_allocator:upload_file' session.session_id %}"
+                    enctype="multipart/form-data"
+                >
+
+                    {% csrf_token %}
+
+                    <input
+                        type="hidden"
+                        name="file_kind"
+                        value="CLASSROOM"
+                    >
+
+                    <input
+                        type="file"
+                        name="file"
+                        accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg"
+                        required
+                    >
+
+                    <button type="submit">
+                        Upload Classroom List
+                    </button>
+
+                </form>
+
+            </div>
+
+
+        </div>
+
+    </div>
+
+
+    <!-- REGISTRATIONS -->
+
+    <div class="section">
+
+        <h2>Registrations</h2>
+
+        {% if exams_count and students_count %}
+
+            <p>
+                Generate student registrations for the
+                examinations in this session.
+            </p>
+
+            <form
+                method="post"
+                action="{% url 'exam_allocator:generate_registrations' session.session_id %}"
+            >
+
+                {% csrf_token %}
+
+                <button
+                    class="button"
+                    type="submit"
+                >
+                    Generate Exam Registrations
+                </button>
+
+            </form>
+
+        {% else %}
+
+            <div class="empty">
+
+                Import students and the exam timetable
+                before generating registrations.
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+
+    <!-- EXAMINATIONS -->
+
+    <div class="section">
+
+        <h2>Examinations</h2>
+
+        {% if exams_count %}
+
+            <a
+                class="button"
+                href="{% url 'exam_allocator:session_exam_list' session.session_id %}"
+            >
+                View {{ exams_count }} Exams →
+            </a>
+
+        {% else %}
+
+            <div class="empty">
+
+                No examinations have been imported
+                into this session yet.
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+
+    <!-- ALLOCATIONS -->
+
+    <div class="section">
+
+        <h2>Allocations</h2>
+
+        {% if allocations_count %}
+
+            <p>
+                {{ allocations_count }}
+                allocation records have been generated.
+            </p>
+
+        {% else %}
+
+            <div class="empty">
+
+                No seat allocations have been generated
+                yet.
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+
+</body>
+
+</html>

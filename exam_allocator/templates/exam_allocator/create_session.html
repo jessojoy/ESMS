@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>New Allocation Session</title>
+
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 700px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .form-container {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px 18px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        .back {
+            display: inline-block;
+            margin-top: 20px;
+        }
+
+        .error {
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #c00;
+            color: #c00;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Start New Allocation Session</h1>
+
+    <p>
+        Create a completely separate workspace for a new
+        examination cycle.
+    </p>
+
+    <div class="form-container">
+
+        {% if error %}
+            <div class="error">
+                {{ error }}
+            </div>
+        {% endif %}
+
+        <form method="post">
+
+            {% csrf_token %}
+
+            <label for="name">
+                Session Name
+            </label>
+
+            <input
+                type="text"
+                id="name"
+                name="name"
+                placeholder="e.g. June 2026 Exams"
+                required
+                autofocus
+            >
+
+            <button type="submit">
+                Create Session
+            </button>
+
+        </form>
+
+    </div>
+
+    <a
+        class="back"
+        href="{% url 'exam_allocator:session_list' %}"
+    >
+        ← Back to Sessions
+    </a>
+
+</body>
+</html>

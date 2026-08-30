@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Exam Seat Allocation</title>
+
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .actions {
+            margin-bottom: 30px;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 12px 18px;
+            text-decoration: none;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #111;
+        }
+
+        .session {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .session h2 {
+            margin-top: 0;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 5px;
+            background: #eee;
+            font-size: 13px;
+        }
+
+        .session-link {
+            display: inline-block;
+            margin-top: 15px;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Exam Seat Allocation</h1>
+
+    <div class="subtitle">
+        Allocation Sessions
+    </div>
+
+    <div class="actions">
+        <a
+            class="button"
+            href="{% url 'exam_allocator:create_session' %}"
+        >
+            + Start New Session
+        </a>
+    </div>
+
+    {% if sessions %}
+
+        {% for session in sessions %}
+
+            <div class="session">
+
+                <h2>{{ session.name }}</h2>
+
+                <span class="status">
+                    {{ session.get_status_display }}
+                </span>
+
+                <p>
+                    Created:
+                    {{ session.created_at|date:"d M Y, H:i" }}
+                </p>
+
+                <a
+                    class="session-link"
+                    href="{% url 'exam_allocator:session_detail' session.session_id %}"
+                >
+                    Open Session →
+                </a>
+
+            </div>
+
+        {% endfor %}
+
+    {% else %}
+
+        <p>
+            No allocation sessions exist yet.
+        </p>
+
+    {% endif %}
+
+</body>
+</html>

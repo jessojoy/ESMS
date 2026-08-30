@@ -8,8 +8,28 @@ app_name = "exam_allocator"
 urlpatterns = [
     path(
         "",
+        views.session_list,
+        name="session_list",
+    ),
+    path(
+        "session/new/",
+        views.create_session,
+        name="create_session",
+    ),
+    path(
+        "session/<int:session_id>/",
+        views.session_detail,
+        name="session_detail",
+    ),
+    path(
+        "session/<int:session_id>/exams/",
         views.exam_list,
-        name="exam_list",
+        name="session_exam_list",
+    ),
+    path(
+        "session/<int:session_id>/upload/",
+        views.upload_file,
+        name="upload_file",
     ),
     path(
         "exam/<int:exam_id>/generate/",
@@ -20,5 +40,10 @@ urlpatterns = [
         "exam/<int:exam_id>/allocations/",
         views.allocation_list,
         name="allocation_list",
+    ),
+    path(
+        "session/<int:session_id>/registrations/generate/",
+        views.generate_registrations,
+        name="generate_registrations",
     ),
 ]
